@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BTCUSDT 선물 차트 (바이낸스 스타일 시안)</title>
+<style>
+  :root {
+    --bg: #0b0e11;
+    --panel: #181a20;
+    --line: #2b3139;
+    --text: #eaecef;
+    --muted: #848e9c;
+    --up: #0ecb81;
+    --down: #f6465d;
+    --accent: #f0b90b;
+    --err: #ff8a3d;
+    --seg: #1f2329;
+    --on-accent: #1e2026;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 13px;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+  .muted { color: var(--muted); }
+
+  /* 상단: 종목·가격·24시간 통계 */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .symbol { font-size: 17px; font-weight: 700; }
+  .symbol small { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .price { font-size: 22px; font-weight: 700; }
+  .stats { display: flex; gap: 20px; flex-wrap: wrap; }
+  .stat .k { color: var(--muted); font-size: 12px; }
+  .stat .v { font-size: 13px; margin-top: 2px; }
+
+  /* 상태 알림 줄 */
+  .notice {
+    padding: 8px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .notice.warn { color: var(--accent); }
+  .notice.err { color: var(--err); }
+  .notice[hidden] { display: none; }
+
+  /* 간격 전환 */
+  .toolbar {
+    display: flex;
+    gap: 4px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .tf {
+    background: none;
+    border: 0;
+    color: var(--muted);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font: inherit;
+    cursor: pointer;
+  }
+  .tf[aria-pressed="true"] { color: var(--accent); background: var(--seg); }
+  .tf:focus-visible { outline: 2px solid var(--accent); }
+
+  /* 차트 */
+  .chart-wrap { position: relative; padding: 8px 0 0; }
+  .chart { width: 100%; height: 480px; display: block; }
+  .chart-empty, .chart-loading, .chart-blocked {
+    height: 480px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--muted);
+    text-align: center;
+    padding: 16px;
+  }
+  .chart-blocked strong { color: var(--err); font-size: 15px; }
+  .skeleton {
+    width: 70%;
+    height: 220px;
+    background: linear-gradient(90deg, var(--panel), var(--seg), var(--panel));
+    border-radius: 6px;
+  }
+  .legend { padding: 0 16px 12px; color: var(--muted); font-size: 12px; }
+  .legend span { margin-right: 14px; }
+
+  .foot {
+    padding: 12px 16px 24px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  /* 시안 전용 전환 줄 */
+  .dev {
+    margin: 0;
+    padding: 10px 16px;
+    background: #14171c;
+    border-top: 1px dashed var(--line);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .dev a { color: var(--accent); margin-right: 10px; }
+
+  @media (max-width: 720px) {
+    .price { font-size: 18px; }
+    .chart, .chart-empty, .chart-loading, .chart-blocked { height: 320px; }
+    .stats { gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar" aria-label="종목 정보">
+  <div class="symbol">BTCUSDT<small>무기한</small></div>
+  <div class="price up num" id="price">93,412.50</div>
+  <div class="stats">
+    <div class="stat"><div class="k">24시간 변동</div><div class="v up num" id="chg">▲ +1,284.10 (+1.39%)</div></div>
+    <div class="stat"><div class="k">마크가격</div><div class="v num">93,398.20</div></div>
+    <div class="stat"><div class="k">24시간 고가</div><div class="v num">94,050.00</div></div>
+    <div class="stat"><div class="k">24시간 저가</div><div class="v num">91,870.00</div></div>
+    <div class="stat"><div class="k">24시간 거래량 (BTC)</div><div class="v num">183,420.55</div></div>
+    <div class="stat"><div class="k">펀딩비 / 남은 시간</div><div class="v num">0.0100% / 03:12:40</div></div>
+  </div>
+</header>
+
+<div class="notice warn" id="notice" hidden></div>
+
+<nav class="toolbar" aria-label="차트 간격">
+  <button class="tf" type="button" data-tf="1m">1분</button>
+  <button class="tf" type="button" data-tf="5m">5분</button>
+  <button class="tf" type="button" data-tf="15m">15분</button>
+  <button class="tf" type="button" data-tf="1h" aria-pressed="true">1시간</button>
+  <button class="tf" type="button" data-tf="4h">4시간</button>
+  <button class="tf" type="button" data-tf="1d">1일</button>
+</nav>
+
+<main class="chart-wrap" id="main"></main>
+
+<div class="legend" id="legend">
+  <span>시가 <b class="num" id="o">-</b></span>
+  <span>고가 <b class="num" id="h">-</b></span>
+  <span>저가 <b class="num" id="l">-</b></span>
+  <span>종가 <b class="num" id="c">-</b></span>
+  <span>거래량 <b class="num" id="vol">-</b></span>
+</div>
+
+<div class="foot">
+  시간은 한국 시간(KST) 기준입니다. 1일 봉은 바이낸스 기준 UTC 00:00 에 시작하므로 KST 로는 오전 9시에 시작합니다.<br>
+  데이터 출처: 바이낸스 공개 시세 (fapi.binance.com). 시세 조회 전용이며 주문 기능은 없습니다.
+</div>
+
+<p class="dev">
+  시안 전용 전환:
+  <a href="?state=live">정상</a>
+  <a href="?state=loading">로딩</a>
+  <a href="?state=reconnecting">재연결</a>
+  <a href="?state=error">끊김</a>
+  <a href="?state=blocked">차단(451)</a>
+  <a href="?state=empty">데이터 없음</a>
+</p>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const state = params.get('state') || 'live';
+  const main = document.getElementById('main');
+  const notice = document.getElementById('notice');
+  const legend = document.getElementById('legend');
+
+  // 예시 캔들 (결정적 난수로 항상 같은 모양)
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const candles = [];
+  let p = 92600;
+  for (let i = 0; i < 80; i++) {
+    const o = p;
+    const c = o + (rnd() - 0.45) * 420;
+    const h = Math.max(o, c) + rnd() * 160;
+    const l = Math.min(o, c) - rnd() * 160;
+    candles.push({ o, h, l, c, v: 40 + rnd() * 160 });
+    p = c;
+  }
+
+  function drawChart() {
+    const W = 1200, H = 480, PAD_R = 70, PAD_B = 28, PRICE_H = 330;
+    const cw = (W - PAD_R) / candles.length;
+    const hi = Math.max(...candles.map(k => k.h));
+    const lo = Math.min(...candles.map(k => k.l));
+    const y = v => 8 + (hi - v) / (hi - lo) * (PRICE_H - 16);
+    const vmax = Math.max(...candles.map(k => k.v));
+    const vy = v => H - PAD_B - (v / vmax) * 90;
+    let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="BTCUSDT 캔들 차트">`;
+    // 가로 눈금
+    for (let i = 0; i <= 4; i++) {
+      const yy = 8 + i * (PRICE_H - 16) / 4;
+      const val = hi - i * (hi - lo) / 4;
+      svg += `<line x1="0" x2="${W - PAD_R}" y1="${yy}" y2="${yy}" stroke="#2b3139" stroke-dasharray="2 4"/>`;
+      svg += `<text x="${W - PAD_R + 6}" y="${yy + 4}" fill="#848e9c" font-size="12">${Math.round(val).toLocaleString('en-US')}</text>`;
+    }
+    candles.forEach((k, i) => {
+      const x = i * cw + cw / 2;
+      const up = k.c >= k.o;
+      const col = up ? '#0ecb81' : '#f6465d';
+      svg += `<line x1="${x}" x2="${x}" y1="${y(k.h)}" y2="${y(k.l)}" stroke="${col}" stroke-width="1"/>`;
+      const top = y(Math.max(k.o, k.c));
+      const bh = Math.max(1, Math.abs(y(k.o) - y(k.c)));
+      svg += `<rect x="${x - cw * 0.3}" y="${top}" width="${cw * 0.6}" height="${bh}" fill="${col}"/>`;
+      svg += `<rect x="${x - cw * 0.3}" y="${vy(k.v)}" width="${cw * 0.6}" height="${H - PAD_B - vy(k.v)}" fill="${col}" opacity="0.35"/>`;
+    });
+    // 마지막 가격선
+    const last = candles[candles.length - 1].c;
+    svg += `<line x1="0" x2="${W - PAD_R}" y1="${y(last)}" y2="${y(last)}" stroke="#f0b90b" stroke-dasharray="4 3"/>`;
+    svg += `<rect x="${W - PAD_R}" y="${y(last) - 10}" width="${PAD_R - 4}" height="20" fill="#f0b90b"/>`;
+    svg += `<text x="${W - PAD_R + 4}" y="${y(last) + 4}" fill="#1e2026" font-size="12" font-weight="700">${last.toFixed(2)}</text>`;
+    svg += '</svg>';
+    return svg;
+  }
+
+  function render() {
+    if (state === 'loading') {
+      main.innerHTML = '<div class="chart-loading"><div class="skeleton"></div>차트 데이터를 불러오는 중…</div>';
+      legend.hidden = true;
+      return;
+    }
+    if (state === 'blocked') {
+      main.innerHTML = '<div class="chart-blocked"><strong>데이터를 가져올 수 없습니다 (HTTP 451)</strong><span>이 지역에서 바이낸스 시세 접속이 제한되었습니다. 다른 네트워크에서 다시 시도하세요.</span></div>';
+      legend.hidden = true;
+      return;
+    }
+    if (state === 'empty') {
+      main.innerHTML = '<div class="chart-empty">선택한 간격의 데이터가 없습니다.</div>';
+      legend.hidden = true;
+      return;
+    }
+    main.innerHTML = drawChart();
+    const k = candles[candles.length - 1];
+    document.getElementById('o').textContent = k.o.toFixed(2);
+    document.getElementById('h').textContent = k.h.toFixed(2);
+    document.getElementById('l').textContent = k.l.toFixed(2);
+    document.getElementById('c').textContent = k.c.toFixed(2);
+    document.getElementById('vol').textContent = k.v.toFixed(3);
+  }
+
+  // 상태별 상단 표시
+  const priceEl = document.getElementById('price');
+  if (state === 'loading' || state === 'blocked' || state === 'empty') {
+    priceEl.textContent = '-';
+    priceEl.className = 'price muted num';
+    document.getElementById('chg').textContent = '-';
+  }
+  if (state === 'reconnecting') {
+    notice.hidden = false;
+    notice.className = 'notice warn';
+    notice.textContent = '연결이 끊겨 다시 연결하고 있습니다 (3회 시도). 표시된 가격은 마지막으로 받은 값입니다.';
+  }
+  if (state === 'error') {
+    notice.hidden = false;
+    notice.className = 'notice err';
+    notice.innerHTML = '연결을 복구하지 못했습니다. 마지막 값: 14:02:10 · <button type="button">다시 연결</button>';
+  }
+
+  render();
+</script>
+</body>
+</html>

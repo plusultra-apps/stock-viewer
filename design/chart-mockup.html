@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BTCUSDT 선물 실시간 캔들 차트 (시안)</title>
+<style>
+  /* 디자인 토큰 (docs/02-design.md 의 색 규칙과 같다) */
+  :root {
+    --bg: #0b0e11;
+    --panel: #161a1e;
+    --line: #2b3139;
+    --seg: #1f242a;
+    --text: #eaecef;
+    --muted: #848e9c;
+    --up: #f6465d;      /* 팔레트 A (기본): 상승 빨강, 하락 파랑 */
+    --down: #4a9eff;
+    --ok: #0ecb81;
+    --warn: #f0b90b;
+    --err: #ff8a3d;
+    --accent: #fcd535;
+    --on-accent: #1e2026;
+  }
+  body.pal-b { --up: #0ecb81; --down: #f6465d; }   /* 팔레트 B: 상승 초록, 하락 빨강 */
+
+  [hidden] { display: none !important; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 14px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+  .wrap.all { max-width: 1280px; }
+
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 18px; margin: 0; }
+  .tag {
+    font-size: 12px; font-weight: 400; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; margin-left: 8px; vertical-align: middle;
+  }
+  .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+  .status {
+    font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--line); white-space: nowrap;
+  }
+  .status .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 6px; vertical-align: middle; background: currentColor;
+  }
+  .t-ok { color: var(--ok); }
+  .t-warn { color: var(--warn); }
+  .t-err { color: var(--err); }
+  .t-wait { color: var(--muted); }
+
+  .notice {
+    margin-top: 12px; padding: 10px 14px; border-radius: 10px; border: 1px solid;
+    font-size: 14px; line-height: 1.5; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  }
+  .n-warn { color: var(--warn); border-color: var(--warn); }
+  .n-err { color: var(--err); border-color: var(--err); }
+  .btn {
+    min-height: 44px; margin-left: auto; padding: 0 14px; border-radius: 8px;
+    border: 1px solid currentColor; background: transparent; color: inherit;
+    font: inherit; font-weight: 700; cursor: pointer;
+  }
+
+  .panel {
+    margin-top: 16px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px;
+  }
+  .price-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+  .price { font-size: 36px; font-weight: 700; font-variant-numeric: tabular-nums; min-height: 44px; }
+  .change { font-size: 15px; margin-top: 2px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .change.up { color: var(--up); }
+  .change.down { color: var(--down); }
+  .stamp { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .skel {
+    display: inline-block; width: 240px; height: 44px; background: var(--line); border-radius: 6px;
+    animation: pulse 1.2s ease-in-out infinite alternate;
+  }
+  @keyframes pulse { to { opacity: .4; } }
+  @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .seg {
+    position: relative; min-width: 64px; min-height: 44px; padding: 0 14px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--seg); color: var(--text);
+    font: inherit; font-weight: 600; cursor: pointer;
+  }
+  .seg[aria-pressed="true"] {
+    background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 800;
+  }
+  .seg[aria-pressed="true"]::after {
+    content: ""; position: absolute; left: 12px; right: 12px; bottom: 4px; height: 3px;
+    border-radius: 2px; background: var(--on-accent);
+  }
+  .seg:focus-visible, .btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+  .lastbar { margin-top: 10px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; min-height: 20px; }
+
+  .chart {
+    position: relative; margin-top: 8px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--bg); overflow: hidden;
+  }
+  .chart.dim .svg { opacity: .55; }
+  .svg { display: block; width: 100%; height: auto; }
+  .grid { stroke: var(--line); stroke-width: 1; }
+  .axis { fill: var(--muted); font-size: 12px; }
+  .up .wick { stroke: var(--up); stroke-width: 1.2; }
+  .up .body, .up .vol { fill: var(--up); }
+  .down .wick { stroke: var(--down); stroke-width: 1.2; }
+  .down .body, .down .vol { fill: var(--down); }
+  .vol { opacity: .45; }
+  .last .body { stroke: var(--text); stroke-width: 1; }
+  .stale .body, .stale .wick { opacity: .5; }
+  .stale .body { stroke-dasharray: 3 2; }
+  .pline { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; }
+  .plbg { fill: var(--text); }
+  .pl { fill: var(--bg); font-size: 12px; font-weight: 700; }
+  .sk { fill: var(--line); }
+
+  .tip {
+    position: absolute; top: 8px; left: 0; width: 240px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+    font-size: 13px; line-height: 1.6; pointer-events: none; font-variant-numeric: tabular-nums;
+  }
+  .tip.flip { transform: translateX(calc(-100% - 28px)); }
+  .tip .up, .tip .down { font-weight: 700; }
+
+  .overlay {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 16px; font-size: 15px; font-weight: 700;
+    background: rgba(11, 14, 17, .72);
+  }
+
+  .foot { margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  .cap { font-size: 13px; font-weight: 700; color: var(--accent); margin: 16px 0 8px; }
+  .gallery { display: grid; grid-template-columns: 1fr; gap: 8px 24px; }
+  @media (min-width: 1200px) { .gallery { grid-template-columns: 1fr 1fr; } }
+
+  .dev {
+    margin-top: 28px; padding-top: 12px; border-top: 1px dashed var(--line);
+    font-size: 13px; color: var(--muted); line-height: 2;
+  }
+  .dev a { color: var(--text); margin-right: 10px; }
+
+  @media (max-width: 640px) {
+    .wrap { padding: 16px 12px; }
+    .price { font-size: 28px; }
+    .seg { flex: 1 1 28%; min-width: 0; padding: 0 6px; }
+    .tip { width: 200px; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap" id="wrap">
+  <div id="app"></div>
+
+  <nav class="dev" aria-label="시안 전용 전환 (제품 화면 아님)">
+    시안 전용 전환 (제품 화면 아님) —
+    상태:
+    <a data-q="state=loading">로딩</a>
+    <a data-q="state=live">정상</a>
+    <a data-q="state=reconnecting">재연결 중</a>
+    <a data-q="state=error">연결 끊김</a>
+    <a data-q="state=blocked">차단 (451)</a>
+    <a data-q="state=empty">데이터 없음</a>
+    <a data-q="view=all">6개 상태 나란히</a>
+    <br>
+    색 (A/B 결정 대상):
+    <a data-q="palette=a">A: 상승 빨강 (기본)</a>
+    <a data-q="palette=b">B: 상승 초록</a>
+    <br>
+    시안은 봉 100개만 그렸다 (실제 목표는 최근 500개). 값은 모두 예시 데이터다.
+  </nav>
+</main>
+
+<template id="tpl">
+  <article class="screen">
+    <div class="cap" hidden></div>
+    <header class="top">
+      <div>
+        <h1>BTCUSDT 선물 실시간 캔들 차트<span class="tag">무기한 선물</span></h1>
+        <div class="sub">바이낸스 USDⓈ-M 공개 시세 · 시간 KST · 시안 (예시 데이터, 실제 값 아님)</div>
+      </div>
+      <div class="status t-wait"><span class="dot"></span><span class="status-text"></span></div>
+    </header>
+
+    <div class="notice" role="status" hidden></div>
+
+    <section class="panel">
+      <div class="price-row">
+        <div>
+          <div class="price"></div>
+          <div class="change"></div>
+        </div>
+        <div class="stamp"></div>
+      </div>
+
+      <div class="toolbar" role="group" aria-label="봉 간격">
+        <button type="button" class="seg" data-tf="1m" aria-label="1분봉 (1m)">1m</button>
+        <button type="button" class="seg" data-tf="5m" aria-label="5분봉 (5m)">5m</button>
+        <button type="button" class="seg" data-tf="15m" aria-label="15분봉 (15m)">15m</button>
+        <button type="button" class="seg" data-tf="1h" aria-label="1시간봉 (1h)">1h</button>
+        <button type="button" class="seg" data-tf="4h" aria-label="4시간봉 (4h)">4h</button>
+        <button type="button" class="seg" data-tf="1d" aria-label="1일봉 (1d)">1d</button>
+      </div>
+
+      <div class="lastbar"></div>
+
+      <div class="chart">
+        <svg class="svg" viewBox="0 0 1000 360" role="img" aria-label="BTCUSDT 캔들과 거래량 차트"></svg>
+        <div class="overlay" hidden></div>
+        <div class="tip" hidden></div>
+      </div>
+
+      <div class="foot">
+        시세 조회 전용입니다. 주문, 로그인, API 키 입력 기능은 없습니다. 시간은 KST 기준입니다.
+      </div>
+    </section>
+  </article>
+</template>
+
+<script>
+(function () {
+  // ---- 시안 설정 ----
+  var qs = new URLSearchParams(location.search);
+  document.body.classList.add('pal-' + (qs.get('palette') === 'b' ? 'b' : 'a'));
+
+  var W = 1000, X0 = 8, X1 = 918, Y0 = 10, Y1 = 248, V0 = 268, V1 = 326, XL = 350;
+  var TF_STEP = { '1m': 60e3, '5m': 300e3, '15m': 900e3, '1h': 36e5, '4h': 144e5, '1d': 864e5 };
+  var NOW = Date.UTC(2026, 9, 29, 5, 3, 27);   // 시안 고정 시각: 2026-10-29 14:03:27 KST
+  var LAST_CLOSE = 93412.5;                     // 시안 예시 가격
+  var N = 100;                                  // 시안은 100봉만 그린다 (제품 목표 500봉)
+
+  // 상태별 모습. mode: skeleton | data | stale | blocked | empty
+  var STATES = {
+    loading:      { caption: '① 로딩', tone: 'wait', status: '연결 중…', mode: 'skeleton', stamp: null },
+    live:         { caption: '② 정상 (실시간)', tone: 'ok', status: '실시간', mode: 'data', stamp: '14:03:27' },
+    reconnecting: { caption: '③ 재연결 중', tone: 'warn', status: '재연결 중 (3회 시도)', mode: 'stale', stamp: '14:03:12', frozen: true,
+                    notice: '연결이 끊겨 다시 연결하고 있습니다. 가격과 마지막 봉은 14:03:12 의 값에 멈춰 있고, 연결되면 빠진 봉을 채웁니다.' },
+    error:        { caption: '④ 연결 끊김 (복구 실패)', tone: 'err', status: '연결 끊김', mode: 'stale', stamp: '14:03:12', frozen: true, dim: true,
+                    notice: '연결을 복구하지 못했습니다. 마지막 값 14:03:12 기준입니다. <button type="button" class="btn">다시 연결</button>' },
+    blocked:      { caption: '⑤ 차단 (오류 451)', tone: 'err', status: '시세 차단', mode: 'blocked', stamp: null,
+                    notice: '이 지역/네트워크에서는 시세를 받을 수 없습니다 (오류 451). 가격과 차트를 표시하지 않습니다.' },
+    empty:        { caption: '⑥ 데이터 없음', tone: 'warn', status: '데이터 없음', mode: 'empty', stamp: '14:03:27',
+                    notice: '선택한 간격의 봉이 0개입니다. 다른 간격을 누르거나 잠시 뒤 다시 시도하세요.' }
+  };
+
+  // ---- 예시 데이터 (실제 API 호출 없음) ----
+  function rng(seed) {
+    return function () { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  }
+  function makeCandles(tf) {
+    var step = TF_STEP[tf];
+    var r = rng(([].slice.call(tf).reduce(function (a, ch) { return (a * 31 + ch.charCodeAt(0)) >>> 0; }, 7)) || 1);
+    var last = Math.floor(NOW / step) * step;
+    var cs = [], p = 93000, i, o, c;
+    for (i = 0; i < N; i++) {
+      o = p;
+      c = o * (1 + (r() - 0.5) * 0.008);
+      cs.push({
+        t: last - (N - 1 - i) * step,
+        o: o,
+        h: Math.max(o, c) * (1 + r() * 0.003),
+        l: Math.min(o, c) * (1 - r() * 0.003),
+        c: c,
+        v: 20 + r() * 120
+      });
+      p = c;
+    }
+    var d = LAST_CLOSE - cs[N - 1].c;   // 마지막 봉 종가를 예시 가격에 맞춘다
+    cs.forEach(function (k) { k.o += d; k.h += d; k.l += d; k.c += d; });
+    return cs;
+  }
+
+  // ---- 포맷 (KST 는 UTC+9 를 직접 더해 계산) ----
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function fmtP(p) { return p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function kst(ms) { return new Date(ms + 9 * 3600e3); }
+  function fmtT(ms, tf) {
+    var d = kst(ms);
+    return tf === '1d' ? pad(d.getUTCMonth() + 1) + '/' + pad(d.getUTCDate())
+                       : pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+  }
+  function fmtFull(ms) {
+    var d = kst(ms);
+    return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) + ' ' +
+           pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+  }
+
+  // ---- 그리기 ----
+  function drawCandles(svg, cs, stale, tf) {
+    var hi = Math.max.apply(null, cs.map(function (c) { return c.h; }));
+    var lo = Math.min.apply(null, cs.map(function (c) { return c.l; }));
+    var pad_ = (hi - lo) * 0.05, top = hi + pad_, bot = lo - pad_;
+    var vmax = Math.max.apply(null, cs.map(function (c) { return c.v; }));
+    var slot = (X1 - X0) / cs.length, bw = slot * 0.6;
+    function y(p) { return Y0 + (top - p) / (top - bot) * (Y1 - Y0); }
+    function vh(v) { return v / vmax * (V1 - V0); }
+    function cx(i) { return X0 + slot * (i + 0.5); }
+
+    var g = '', k, p, yy, i;
+    for (k = 0; k <= 4; k++) {
+      p = top - (top - bot) * k / 4;
+      yy = y(p).toFixed(1);
+      g += '<line class="grid" x1="' + X0 + '" x2="' + X1 + '" y1="' + yy + '" y2="' + yy + '"/>';
+      g += '<text class="axis" x="' + (X1 + 6) + '" y="' + yy + '" dominant-baseline="middle">' + fmtP(p) + '</text>';
+    }
+    g += '<line class="grid" x1="' + X0 + '" x2="' + X1 + '" y1="' + V1 + '" y2="' + V1 + '"/>';
+    g += '<text class="axis" x="' + X0 + '" y="' + (V0 - 6) + '">거래량 (BTC)</text>';
+
+    cs.forEach(function (c, idx) {
+      var x = cx(idx), dir = c.c >= c.o ? 'up' : 'down';
+      var isLast = idx === cs.length - 1;
+      var cls = dir + (isLast ? ' last' : '') + (isLast && stale ? ' stale' : '');
+      var yo = y(c.o), yc = y(c.c);
+      g += '<g class="' + cls + '">' +
+        '<line class="wick" x1="' + x + '" x2="' + x + '" y1="' + y(c.h).toFixed(1) + '" y2="' + y(c.l).toFixed(1) + '"/>' +
+        '<rect class="body" x="' + (x - bw / 2).toFixed(1) + '" y="' + Math.min(yo, yc).toFixed(1) +
+          '" width="' + bw.toFixed(1) + '" height="' + Math.max(1, Math.abs(yc - yo)).toFixed(1) + '"/>' +
+        '<rect class="vol" x="' + (x - bw / 2).toFixed(1) + '" y="' + (V1 - vh(c.v)).toFixed(1) +
+          '" width="' + bw.toFixed(1) + '" height="' + vh(c.v).toFixed(1) + '"/>' +
+        '</g>';
+    });
+
+    var last = cs[cs.length - 1], ly = y(last.c).toFixed(1);
+    g += '<line class="pline" x1="' + X0 + '" x2="' + X1 + '" y1="' + ly + '" y2="' + ly + '"/>' +
+      '<rect class="plbg" x="' + (X1 + 2) + '" y="' + (ly - 9) + '" width="74" height="18" rx="3"/>' +
+      '<text class="pl" x="' + (X1 + 6) + '" y="' + ly + '" dominant-baseline="middle">' + fmtP(last.c) + '</text>';
+
+    var step = Math.ceil(cs.length / 6);
+    for (i = 0; i < cs.length; i += step) {
+      g += '<text class="axis" x="' + cx(i).toFixed(1) + '" y="' + XL + '" text-anchor="middle">' + fmtT(cs[i].t, tf) + '</text>';
+    }
+    g += '<text class="axis" x="' + X1 + '" y="' + XL + '" text-anchor="end">KST</text>';
+    svg.innerHTML = g;
+  }
+
+  function drawSkeleton(svg) {
+    var g = '';
+    for (var i = 0; i < 40; i++) {
+      var h = 40 + ((i * 53) % 150);
+      g += '<rect class="sk" x="' + (X0 + i * 22.5) + '" y="' + (Y1 - h) + '" width="14" height="' + h + '" rx="3"/>';
+    }
+    svg.innerHTML = g;
+  }
+
+  // ---- 화면 한 개 (상태별로 복제해서 쓴다) ----
+  var app = document.getElementById('app');
+
+  function mount(state, tf, caption) {
+    var S = STATES[state];
+    var node = document.getElementById('tpl').content.firstElementChild.cloneNode(true);
+    app.appendChild(node);
+    function q(sel) { return node.querySelector(sel); }
+
+    var svg = q('.svg'), chart = q('.chart'), tip = q('.tip'), ov = q('.overlay');
+    var priceEl = q('.price'), changeEl = q('.change'), stampEl = q('.stamp'), lastEl = q('.lastbar');
+    var st = q('.status'), nt = q('.notice');
+    var cur = tf, data = [];
+
+    if (caption) { q('.cap').hidden = false; q('.cap').textContent = caption; }
+
+    st.className = 'status t-' + S.tone;
+    q('.status-text').textContent = S.status;
+    if (S.notice) { nt.hidden = false; nt.className = 'notice n-' + S.tone; nt.innerHTML = S.notice; }
+    stampEl.textContent = '마지막 갱신 ' + (S.stamp ? S.stamp + ' KST' : '-');
+    chart.classList.toggle('dim', !!S.dim);
+
+    function draw() {
+      node.querySelectorAll('.seg').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b.dataset.tf === cur));
+      });
+      data = (S.mode === 'data' || S.mode === 'stale') ? makeCandles(cur) : [];
+      var last = data[data.length - 1];
+
+      if (S.mode === 'skeleton') {
+        priceEl.innerHTML = '<span class="skel" aria-label="가격 불러오는 중"></span>';
+        changeEl.className = 'change';
+        changeEl.textContent = '시세를 불러오는 중…';
+        drawSkeleton(svg);
+        lastEl.textContent = '';
+      } else if (last) {
+        var d = last.c - last.o;
+        var pct = Math.abs(d / last.o * 100).toFixed(2);
+        priceEl.textContent = fmtP(last.c);
+        changeEl.className = 'change ' + (d >= 0 ? 'up' : 'down');
+        changeEl.textContent = (d >= 0 ? '▲ ' : '▼ ') + fmtP(Math.abs(d)) + ' (' + (d >= 0 ? '+' : '-') + pct + '%) · 선택 간격 봉 시가 대비' +
+          (S.frozen ? ' · 멈춤' : '');
+        drawCandles(svg, data, S.mode === 'stale', cur);
+        lastEl.textContent = (S.frozen ? '마지막 봉 ' : '진행 중 봉 ') + fmtFull(last.t) + ' KST · 시 ' + fmtP(last.o) +
+          ' · 고 ' + fmtP(last.h) + ' · 저 ' + fmtP(last.l) + ' · 종 ' + fmtP(last.c) +
+          ' · 거래량 ' + last.v.toFixed(2) + ' BTC';
+      } else {
+        priceEl.textContent = '--';
+        changeEl.className = 'change';
+        changeEl.textContent = S.mode === 'blocked' ? '가격을 받을 수 없습니다' : '표시할 가격이 없습니다';
+        svg.innerHTML = '';
+        lastEl.textContent = '봉 정보 없음';
+      }
+
+      if (S.mode === 'blocked') {
+        ov.hidden = false; ov.textContent = '차트를 표시할 수 없습니다 (오류 451)';
+      } else if (S.mode === 'empty') {
+        ov.hidden = false; ov.textContent = '선택한 간격(' + cur + ')의 봉이 0개입니다';
+      } else {
+        ov.hidden = true; ov.textContent = '';
+      }
+    }
+
+    node.querySelectorAll('.seg').forEach(function (b) {
+      b.addEventListener('click', function () { cur = b.dataset.tf; draw(); });
+    });
+
+    // 마우스를 봉에 올리면 상세 (터치 기기는 아래 마지막 봉 줄로 본다)
+    svg.addEventListener('mousemove', function (e) {
+      if (!data.length) return;
+      var sr = svg.getBoundingClientRect(), cr = chart.getBoundingClientRect();
+      var vx = (e.clientX - sr.left) / sr.width * W;
+      var i = Math.floor((vx - X0) / ((X1 - X0) / data.length));
+      if (i < 0 || i >= data.length) { tip.hidden = true; return; }
+      var c = data[i], d = c.c - c.o, isLast = i === data.length - 1;
+      tip.innerHTML = '<b>' + fmtFull(c.t) + ' KST</b>' +
+        (isLast ? (S.frozen ? ' · 마지막 봉' : ' · 진행 중') : '') +
+        '<br>시가 ' + fmtP(c.o) + ' · 고가 ' + fmtP(c.h) +
+        '<br>저가 ' + fmtP(c.l) + ' · 종가 ' + fmtP(c.c) +
+        '<br>거래량 ' + c.v.toFixed(2) + ' BTC' +
+        '<br><span class="' + (d >= 0 ? 'up' : 'down') + '">' + (d >= 0 ? '▲ ' : '▼ ') +
+        fmtP(Math.abs(d)) + ' (' + Math.abs(d / c.o * 100).toFixed(2) + '%)</span>';
+      var x = e.clientX - cr.left;
+      tip.style.left = (x + 14) + 'px';
+      tip.classList.toggle('flip', x > cr.width / 2);
+      tip.hidden = false;
+    });
+    svg.addEventListener('mouseleave', function () { tip.hidden = true; });
+
+    draw();
+  }
+
+  // ---- 시작 ----
+  var TF_LIST = Object.keys(TF_STEP);
+  if (qs.get('view') === 'all') {
+    document.getElementById('wrap').classList.add('all');
+    app.classList.add('gallery');
+    ['loading', 'live', 'reconnecting', 'error', 'blocked', 'empty'].forEach(function (s) {
+      mount(s, '1m', STATES[s].caption);
+    });
+  } else {
+    var s = STATES[qs.get('state')] ? qs.get('state') : 'live';
+    var t = TF_LIST.indexOf(qs.get('tf')) >= 0 ? qs.get('tf') : '1m';
+    mount(s, t, '');
+  }
+
+  // 시안 전용 링크: 현재 주소의 다른 파라미터를 살리고 해당 값만 바꾼다
+  document.querySelectorAll('.dev a').forEach(function (a) {
+    var p = new URLSearchParams(location.search);
+    var kv = a.dataset.q.split('=');
+    p.set(kv[0], kv[1]);
+    if (kv[0] === 'state') p.delete('view');
+    if (kv[0] === 'view') p.delete('state');
+    a.href = '?' + p.toString();
+  });
+})();
+</script>
+</body>
+</html>

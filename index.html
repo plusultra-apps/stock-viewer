@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 연결은 바이낸스 공개 주소 두 곳뿐이다 (docs/03-tech-design.md 6절). 스크립트는 같은 출처만. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://fapi.binance.com wss://fstream.binance.com https://stock-viewer-relay.onrender.com wss://stock-viewer-relay.onrender.com; img-src 'self' data:; object-src 'none'; base-uri 'self'"
+    />
+    <title>바이낸스 선물 차트 (시세 조회 전용)</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/app/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BTCUSDT 선물 실시간 시세 (시안)</title>
+<style>
+  :root {
+    --bg: #0b0e11;
+    --panel: #161a1e;
+    --line: #2b3139;
+    --text: #eaecef;
+    --muted: #848e9c;
+    --up: #0ecb81;
+    --down: #f6465d;
+    --warn: #f0b90b;
+    --accent: #fcd535;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f5f6f8; --panel: #ffffff; --line: #e3e6eb;
+      --text: #1e2026; --muted: #707a8a;
+      --up: #0a8f5c; --down: #d6333f; --warn: #b7860b; --accent: #c99400;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 18px; margin: 0; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .status { font-size: 13px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+  .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .st-live .dot { background: var(--up); }
+  .st-live { color: var(--up); }
+  .st-loading .dot, .st-reconnecting .dot { background: var(--warn); }
+  .st-loading, .st-reconnecting { color: var(--warn); }
+  .st-error .dot { background: var(--down); }
+  .st-error { color: var(--down); }
+
+  .card {
+    margin-top: 20px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .symbol-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .symbol { font-size: 20px; font-weight: 700; }
+  .tag { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+  .price { font-size: 44px; font-weight: 700; margin-top: 14px; font-variant-numeric: tabular-nums; }
+  .change { font-size: 16px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .metric { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .metric .label { font-size: 12px; color: var(--muted); }
+  .metric .value { font-size: 17px; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+  .notice {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+  .notice.error { color: var(--down); border-color: var(--down); }
+  .notice.warn { color: var(--warn); border-color: var(--warn); }
+
+  .skeleton { background: var(--line); border-radius: 6px; color: transparent; }
+  .skeleton.big { height: 52px; width: 240px; }
+  .skeleton.small { height: 18px; width: 90px; }
+
+  .foot { margin-top: 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+  @media (max-width: 640px) {
+    .wrap { padding: 16px; }
+    .price { font-size: 34px; }
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>바이낸스 USDⓈ-M 선물 실시간 시세</h1>
+      <div class="sub">시안 · 예시 데이터 (실제 값 아님)</div>
+    </div>
+    <div id="status" class="status">● 연결됨</div>
+  </header>
+
+  <section class="card">
+    <div class="symbol-row">
+      <span class="symbol">BTCUSDT</span>
+      <span class="tag">무기한 선물</span>
+    </div>
+
+    <div id="price" class="price">
+      <span class="skeleton big" id="price-skel"></span>
+      <span id="price-val">93,412.50</span>
+    </div>
+    <div id="change" class="change up">▲ 1,284.10 (+1.39%) 24시간</div>
+
+    <div class="grid">
+      <div class="metric"><div class="label">마크가격</div><div class="value" id="mark">93,398.20</div></div>
+      <div class="metric"><div class="label">24시간 고가</div><div class="value" id="high">94,050.00</div></div>
+      <div class="metric"><div class="label">24시간 저가</div><div class="value" id="low">91,870.00</div></div>
+      <div class="metric"><div class="label">펀딩비</div><div class="value" id="funding">0.0100%</div></div>
+    </div>
+
+    <div id="notice" class="notice" hidden></div>
+
+    <div class="foot">
+      마지막 갱신: <span id="updated">14:03:27</span> · 데이터 출처: 바이낸스 공개 WebSocket (fstream.binance.com)<br>
+      본 화면은 시세 조회 전용이며 주문 기능은 없습니다.
+    </div>
+  </section>
+</div>
+
+<script>
+  // 시안 전용: ?state=live | loading | reconnecting | error 로 상태별 모습을 본다.
+  const state = new URLSearchParams(location.search).get('state') || 'live';
+  const status = document.getElementById('status');
+  const notice = document.getElementById('notice');
+  const priceVal = document.getElementById('price-val');
+  const priceSkel = document.getElementById('price-skel');
+  const change = document.getElementById('change');
+
+  const labels = {
+    live: ['st-live', '● 연결됨'],
+    loading: ['st-loading', '● 연결 중…'],
+    reconnecting: ['st-reconnecting', '● 재연결 중 (3회 시도)'],
+    error: ['st-error', '● 연결 끊김'],
+  };
+  const [cls, text] = labels[state] || labels.live;
+  status.className = 'status ' + cls;
+  status.innerHTML = '<span class="dot"></span>' + text.replace('● ', '');
+
+  if (state === 'loading') {
+    priceVal.hidden = true;
+    priceSkel.hidden = false;
+    change.className = 'change';
+    change.textContent = '시세를 불러오는 중…';
+    document.getElementById('updated').textContent = '-';
+    ['mark', 'high', 'low', 'funding'].forEach(id => {
+      document.getElementById(id).innerHTML = '<span class="skeleton small"></span>';
+    });
+  } else {
+    priceSkel.hidden = true;
+  }
+
+  if (state === 'reconnecting') {
+    notice.hidden = false;
+    notice.className = 'notice warn';
+    notice.textContent = '연결이 끊겨 다시 연결하고 있습니다. 표시된 가격은 마지막으로 받은 값입니다.';
+  }
+
+  if (state === 'error') {
+    notice.hidden = false;
+    notice.className = 'notice error';
+    notice.innerHTML = '연결을 복구하지 못했습니다. 마지막 값: 14:02:10 · <button type="button">다시 연결</button>';
+    change.className = 'change';
+    change.textContent = '마지막 값 기준 (갱신 중단)';
+  }
+</script>
+</body>
+</html>

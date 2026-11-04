@@ -1,0 +1,22 @@
+{
+  "plugins": ["typescript", "react", "import", "unicorn"],
+  "rules": {
+    "max-depth": ["error", 2],
+    "no-else-return": ["error", { "allowElseIf": false }],
+    "no-nested-ternary": "error",
+    "max-lines-per-function": ["error", { "max": 15, "skipBlankLines": true, "skipComments": true }],
+    "no-magic-numbers": ["error", { "ignore": [0, 1, -1], "ignoreArrayIndexes": true, "ignoreEnums": true }],
+    "typescript/no-explicit-any": "error",
+    "no-empty": "error",
+    "import/no-cycle": "error",
+    "import/no-default-export": "error",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "react/no-danger": "error",
+    "no-warning-comments": "warn"
+  },
+  "overrides": [
+    { "files": ["**/*.tsx"], "rules": { "max-lines-per-function": "off" } },
+    { "files": ["**/*.test.ts", "**/*.test.tsx"], "rules": { "no-magic-numbers": "off", "max-lines-per-function": "off" } }
+  ]
+}

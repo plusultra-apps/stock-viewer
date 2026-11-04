@@ -1,0 +1,24 @@
+/* 디자인 토큰 (docs/02-design.md 5장). 색·간격은 이 파일의 값만 쓴다. */
+:root {
+  --bg: #0b0e11;
+  --panel: #181a20;
+  --line: #2b3139;
+  --seg: #1f2329;
+  --text: #eaecef;
+  --muted: #848e9c;
+  --up: #0ecb81;
+  --down: #f6465d;
+  --accent: #f0b90b;
+  --warn: #f0b90b;
+  --err: #ff8a3d;
+  --on-accent: #1e2026;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --radius-control: 8px;
+  --radius-panel: 10px;
+  --radius-chip: 999px;
+  --list-width: 340px;
+}

@@ -1,0 +1,101 @@
+{
+  "timezone": "UTC",
+  "serverTime": 1761700000000,
+  "rateLimits": [
+    { "rateLimitType": "REQUEST_WEIGHT", "interval": "MINUTE", "intervalNum": 1, "limit": 2400 }
+  ],
+  "symbols": [
+    {
+      "symbol": "BTCUSDT",
+      "contractType": "PERPETUAL",
+      "status": "TRADING",
+      "baseAsset": "BTC",
+      "quoteAsset": "USDT",
+      "marginAsset": "USDT",
+      "pricePrecision": 2,
+      "quantityPrecision": 3,
+      "filters": [
+        { "filterType": "PRICE_FILTER", "minPrice": "556.80", "maxPrice": "4529764", "tickSize": "0.10" }
+      ]
+    },
+    {
+      "symbol": "ETHUSDT",
+      "contractType": "PERPETUAL",
+      "status": "TRADING",
+      "baseAsset": "ETH",
+      "quoteAsset": "USDT",
+      "marginAsset": "USDT",
+      "pricePrecision": 2,
+      "quantityPrecision": 3,
+      "filters": [
+        { "filterType": "PRICE_FILTER", "minPrice": "0.01", "maxPrice": "1000000", "tickSize": "0.01" }
+      ]
+    },
+    {
+      "symbol": "1000PEPEUSDT",
+      "contractType": "PERPETUAL",
+      "status": "TRADING",
+      "baseAsset": "1000PEPE",
+      "quoteAsset": "USDT",
+      "marginAsset": "USDT",
+      "pricePrecision": 5,
+      "quantityPrecision": 0,
+      "filters": [
+        { "filterType": "PRICE_FILTER", "minPrice": "0.00001", "maxPrice": "100", "tickSize": "0.00001" }
+      ]
+    },
+    {
+      "symbol": "OLDCOINUSDT",
+      "contractType": "PERPETUAL",
+      "status": "BREAK",
+      "baseAsset": "OLDCOIN",
+      "quoteAsset": "USDT",
+      "marginAsset": "USDT",
+      "pricePrecision": 4,
+      "quantityPrecision": 1,
+      "filters": [
+        { "filterType": "PRICE_FILTER", "minPrice": "0.0001", "maxPrice": "1000", "tickSize": "0.0001" }
+      ]
+    },
+    {
+      "symbol": "NEWSTATEUSDT",
+      "contractType": "PERPETUAL",
+      "status": "SOMETHING_NEW",
+      "baseAsset": "NEWSTATE",
+      "quoteAsset": "USDT",
+      "marginAsset": "USDT",
+      "pricePrecision": 4,
+      "quantityPrecision": 1,
+      "filters": [
+        { "filterType": "PRICE_FILTER", "minPrice": "0.0001", "maxPrice": "1000", "tickSize": "0.0001" }
+      ]
+    },
+    {
+      "symbol": "BTCUSDT_260327",
+      "contractType": "CURRENT_QUARTER",
+      "status": "TRADING",
+      "baseAsset": "BTC",
+      "quoteAsset": "USDT",
+      "marginAsset": "USDT",
+      "pricePrecision": 2,
+      "quantityPrecision": 3,
+      "filters": [
+        { "filterType": "PRICE_FILTER", "minPrice": "556.80", "maxPrice": "4529764", "tickSize": "0.10" }
+      ]
+    },
+    {
+      "contractType": "PERPETUAL",
+      "status": "TRADING",
+      "baseAsset": "NOSYMBOL",
+      "quoteAsset": "USDT",
+      "filters": []
+    },
+    {
+      "symbol": "NOSTATUSUSDT",
+      "contractType": "PERPETUAL",
+      "baseAsset": "NOSTATUS",
+      "quoteAsset": "USDT",
+      "filters": []
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "stock-viewer-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "바이낸스 공개 시세 중계 서버 (앱 → 이 서버 → 바이낸스)",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
+  }
+}

@@ -1,0 +1,7 @@
+[
+  { "symbol": "BTCUSDT", "priceChange": "410.20", "priceChangePercent": "0.44", "weightedAvgPrice": "93100.00", "lastPrice": "93412.50", "lastQty": "0.012", "openPrice": "93002.30", "highPrice": "94100.00", "lowPrice": "92500.00", "volume": "201234.567", "quoteVolume": "18400000000.00", "openTime": 1761600000000, "closeTime": 1761686400000, "count": 1200000 },
+  { "symbol": "ETHUSDT", "priceChange": "-40.10", "priceChangePercent": "-1.12", "weightedAvgPrice": "3530.00", "lastPrice": "3520.15", "lastQty": "0.5", "openPrice": "3560.25", "highPrice": "3600.00", "lowPrice": "3500.00", "volume": "2345678.1", "quoteVolume": "9700000000.00", "openTime": 1761600000000, "closeTime": 1761686400000, "count": 800000 },
+  { "symbol": "1000PEPEUSDT", "priceChange": "0.00030", "priceChangePercent": "2.50", "weightedAvgPrice": "0.01220", "lastPrice": "0.01234", "lastQty": "1000", "openPrice": "0.01204", "highPrice": "0.01300", "lowPrice": "0.01180", "volume": "9876543.0", "quoteVolume": "1600000000.00", "openTime": 1761600000000, "closeTime": 1761686400000, "count": 90000 },
+  { "symbol": "OLDCOINUSDT", "priceChange": "0.0000", "priceChangePercent": "0.00", "weightedAvgPrice": "0.0100", "lastPrice": "0.0100", "lastQty": "1", "openPrice": "0.0100", "highPrice": "0.0100", "lowPrice": "0.0100", "volume": "0", "quoteVolume": "0", "openTime": 1761600000000, "closeTime": 1761686400000, "count": 0 },
+  { "symbol": "UNLISTEDUSDT", "priceChange": "0", "lastPrice": "1", "quoteVolume": "5" }
+]

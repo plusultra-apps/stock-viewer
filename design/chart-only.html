@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>선물 종목 실시간 캔들 차트 (학습용 시안, 예시 데이터)</title>
+<style>
+  :root {
+    --bg: #0b0e11;
+    --panel: #181a20;
+    --line: #2b3139;
+    --text: #eaecef;
+    --muted: #848e9c;
+    --up: #0ecb81;
+    --down: #f6465d;
+    --accent: #f0b90b;
+    --seg: #1f2329;
+    --on-accent: #1e2026;
+    --warn: #f0b90b;
+    --err: #ff8a3d;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 13px;
+  }
+  button, input { font: inherit; }
+  .num { font-variant-numeric: tabular-nums; }
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+  .muted { color: var(--muted); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .top {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding: 12px 16px; border-bottom: 1px solid var(--line);
+  }
+  .brand { font-size: 16px; font-weight: 700; }
+  .sample {
+    display: inline-block; margin-left: 8px; padding: 2px 8px;
+    border: 1px solid var(--accent); border-radius: 999px; color: var(--accent);
+    font-size: 12px; font-weight: 400;
+  }
+  .topnote { color: var(--muted); font-size: 12px; }
+
+  .banner {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 16px; border-bottom: 1px solid var(--line); border-left: 4px solid var(--line);
+    font-size: 14px; line-height: 1.5;
+  }
+  .banner .btn { margin-left: auto; }
+  .b-warn { background: rgba(240, 185, 11, .12); border-left-color: var(--warn); }
+  .b-err { background: rgba(255, 138, 61, .12); border-left-color: var(--err); }
+
+  .btn {
+    background: var(--seg); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+    min-height: 44px; padding: 0 16px; font-weight: 600; cursor: pointer;
+  }
+
+  .app { display: grid; grid-template-columns: 340px minmax(0, 1fr); align-items: start; }
+
+  .side {
+    position: sticky; top: 0; height: 100vh;
+    display: flex; flex-direction: column; min-width: 0;
+    border-right: 1px solid var(--line);
+  }
+  .sidehead { padding: 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .search {
+    width: 100%; height: 44px; padding: 0 12px;
+    background: var(--seg); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px;
+  }
+  .search::placeholder { color: var(--muted); }
+  .search:disabled { opacity: .5; }
+  .lcount { color: var(--muted); font-size: 12px; }
+  .list { flex: 1; min-height: 0; overflow: auto; }
+
+  .row {
+    display: grid; grid-template-columns: 1fr auto; column-gap: 8px; row-gap: 2px; align-items: baseline;
+    width: 100%; min-height: 56px; padding: 8px 12px;
+    background: none; border: 0; border-bottom: 1px solid var(--line);
+    color: inherit; text-align: left; cursor: pointer;
+  }
+  .row:hover { background: rgba(255, 255, 255, .03); }
+  .row[aria-current="true"] { background: var(--seg); box-shadow: inset 3px 0 0 var(--accent); }
+  .row .sym { font-weight: 700; font-size: 14px; }
+  .row .px { text-align: right; font-size: 14px; }
+  .row .sub { color: var(--muted); font-size: 12px; }
+  .row .chg { text-align: right; font-size: 12px; }
+  .row.frozen .px, .row.frozen .chg { opacity: .7; }
+  .row.skel { cursor: default; display: flex; justify-content: space-between; align-items: center; }
+  .row.skel span { display: block; height: 12px; border-radius: 4px; background: var(--seg); }
+
+  .msg { padding: 24px 16px; }
+  .msg .em { margin: 0 0 6px; font-weight: 700; font-size: 14px; }
+  .msg .sub { margin: 0 0 12px; color: var(--muted); line-height: 1.6; }
+
+  .main { min-width: 0; }
+  .symhead { padding: 14px 16px 10px; }
+  .symrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .symbol { margin: 0; font-size: 17px; font-weight: 700; }
+  .tag { color: var(--muted); font-size: 12px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 10px; border: 1px solid currentColor; border-radius: 999px;
+    font-size: 12px; font-weight: 700;
+  }
+  .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .c-ok { color: var(--up); }
+  .c-warn { color: var(--warn); }
+  .c-err { color: var(--err); }
+  .c-muted { color: var(--muted); }
+  .pricerow { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-top: 6px; }
+  .price { font-size: 24px; font-weight: 700; }
+  .price small { font-size: 13px; font-weight: 400; color: var(--muted); }
+  .change { font-size: 13px; }
+  .stamp { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 16px; border-bottom: 1px solid var(--line); }
+  .tf {
+    min-height: 44px; min-width: 44px; padding: 0 12px;
+    background: none; border: 0; border-radius: 8px;
+    color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .tf:hover { color: var(--text); }
+  .tf[aria-pressed="true"] {
+    color: var(--accent); background: var(--seg); font-weight: 800;
+    box-shadow: inset 0 -3px 0 var(--accent);
+  }
+
+  .ctitle { padding: 10px 16px 0; color: var(--muted); font-size: 12px; }
+  .chartbox { position: relative; min-height: 460px; }
+  .chartbox.dim .chart { opacity: .5; }
+  .chart { display: block; }
+  .xh { position: absolute; top: 0; height: 100%; width: 0; border-left: 1px dashed var(--muted); pointer-events: none; }
+  .tip {
+    position: absolute; top: 12px; min-width: 210px; padding: 8px 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    font-size: 12px; line-height: 1.7; pointer-events: none;
+  }
+  .tip b { font-weight: 700; }
+  .box {
+    height: 460px; margin: 12px 16px; padding: 16px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    text-align: center; border: 1px dashed var(--line); border-radius: 12px;
+  }
+  .box p { margin: 0; }
+  .box .sub { color: var(--muted); line-height: 1.6; }
+  .box.loading { background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .03) 0 2px, transparent 2px 24px); }
+
+  .ohlc { display: flex; gap: 16px; flex-wrap: wrap; padding: 10px 16px; color: var(--muted); font-size: 12px; }
+  .ohlc b { color: var(--text); font-weight: 400; margin-left: 4px; }
+  .ohlc .olabel { color: var(--accent); }
+
+  .foot { padding: 12px 16px 16px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+  .statenav { padding: 0 16px 24px; color: var(--muted); font-size: 12px; line-height: 2; }
+  .statenav a { color: var(--text); margin-right: 10px; text-decoration: none; white-space: nowrap; }
+  .statenav a:hover { text-decoration: underline; }
+  .statenav a[aria-current="true"] { color: var(--accent); font-weight: 700; }
+
+  @media (max-width: 899px) {
+    .app { grid-template-columns: minmax(0, 1fr); }
+    .side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    .list { flex: none; max-height: 320px; }
+  }
+  @media (max-width: 720px) {
+    .price { font-size: 19px; }
+    .chartbox { min-height: 300px; }
+    .box { height: 300px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">선물 종목 실시간 캔들 차트 <span class="sample">예시 데이터 · 학습용 시안</span></div>
+  <div class="topnote">시세 조회 전용 · 주문·로그인·API 키 입력 없음 · 시간은 KST</div>
+</header>
+
+<div class="banner" id="banner" role="status" hidden>
+  <span id="bannerText"></span>
+  <button class="btn" id="bannerBtn" type="button" hidden></button>
+</div>
+
+<div class="app">
+  <aside class="side" aria-label="종목 목록">
+    <div class="sidehead">
+      <label class="sr" for="q">종목 검색 (기호 일부, 대소문자 무관)</label>
+      <input class="search" id="q" type="search" placeholder="기호 일부 입력 (예: btc, pepe)" autocomplete="off" spellcheck="false">
+      <div class="lcount" id="lcount"></div>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+
+  <main class="main">
+    <section class="symhead" aria-label="선택 종목">
+      <div class="symrow">
+        <h1 class="symbol" id="symName">BTCUSDT</h1>
+        <span class="tag">USDⓈ-M 무기한 선물</span>
+        <span class="tag" id="unitnote" hidden>· 1000배 단위 종목</span>
+        <span class="chip c-ok" id="chip" role="status">실시간</span>
+      </div>
+      <div class="pricerow">
+        <div class="price num" id="price">-</div>
+        <div class="change num" id="change">-</div>
+        <div class="stamp num" id="stamp">마지막 갱신 -</div>
+      </div>
+    </section>
+
+    <nav class="toolbar" aria-label="차트 간격">
+      <button class="tf" type="button" data-tf="1m" aria-pressed="true">1분</button>
+      <button class="tf" type="button" data-tf="5m" aria-pressed="false">5분</button>
+      <button class="tf" type="button" data-tf="15m" aria-pressed="false">15분</button>
+      <button class="tf" type="button" data-tf="1h" aria-pressed="false">1시간</button>
+      <button class="tf" type="button" data-tf="4h" aria-pressed="false">4시간</button>
+      <button class="tf" type="button" data-tf="1d" aria-pressed="false">1일</button>
+    </nav>
+
+    <div class="ctitle" id="ctitle"></div>
+    <div class="chartbox" id="chartBox"></div>
+
+    <div class="ohlc num" id="ohlc">
+      <span class="olabel" id="olabel">진행 중 봉</span>
+      <span>시가<b id="o">-</b></span>
+      <span>고가<b id="h">-</b></span>
+      <span>저가<b id="l">-</b></span>
+      <span>종가<b id="c">-</b></span>
+      <span>거래량<b id="v">-</b></span>
+    </div>
+
+    <div class="foot">
+      시간은 한국 시간(KST) 기준입니다. 바이낸스 봉은 UTC 기준이라 1일 봉은 KST 오전 9시에 시작합니다.<br>
+      예시 데이터입니다. 종목 기호·가격·거래대금·봉은 모두 가짜 값이며 실제 시세가 아닙니다. 실시간 연결과 갱신은 이 시안에서 움직이지 않고, 상태 문구만 보여 줍니다.
+    </div>
+
+    <nav class="statenav" aria-label="시안 상태 전환">
+      시안 상태 보기:
+      <a href="?state=live" data-state="live">정상</a>
+      <a href="?state=loading" data-state="loading">로딩</a>
+      <a href="?state=empty" data-state="empty">빈 목록</a>
+      <a href="?state=nomatch" data-state="nomatch">검색 결과 없음</a>
+      <a href="?state=ratelimit" data-state="ratelimit">요청 제한</a>
+      <a href="?state=listerror" data-state="listerror">종목 목록 실패</a>
+      <a href="?state=blocked" data-state="blocked">차단 (451)</a>
+      <a href="?state=reconnecting" data-state="reconnecting">재연결 중</a>
+      <a href="?state=offline" data-state="offline">연결 끊김</a>
+      <a href="?state=delisted" data-state="delisted">거래 종료</a>
+      <a href="?state=candleerror" data-state="candleerror">봉 로드 실패</a>
+    </nav>
+  </main>
+</div>
+
+<script>
+  const UP = '#0ecb81', DOWN = '#f6465d';
+  const TF = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
+  const TF_LABEL = { '1m': '1분봉', '5m': '5분봉', '15m': '15분봉', '1h': '1시간봉', '4h': '4시간봉', '1d': '1일봉' };
+  const N_CANDLES = 100;
+
+  // 예시 데이터: 기호 형태만 흉내 낸 가짜 값. 실제 시세 아님. 거래대금 큰 순으로 놓았다.
+  const SYMS = [
+    { s: 'BTCUSDT',      unit: 'BTC',      price: 93412.50, dec: 2, chg: 0.44,  vol: '$18.4B', vnum: 18.4 },
+    { s: 'ETHUSDT',      unit: 'ETH',      price: 3520.15,  dec: 2, chg: -1.12, vol: '$9.7B',  vnum: 9.7 },
+    { s: '1000PEPEUSDT', unit: '1000PEPE', price: 0.01234,  dec: 5, chg: 3.87,  vol: '$1.6B',  vnum: 1.6 },
+    { s: 'SAMPLEUSDT',   unit: 'SAMPLE',   price: 1.8421,   dec: 4, chg: -0.27, vol: '$0.8B',  vnum: 0.8 },
+    { s: 'EXAMPLEUSDT',  unit: 'EXAMPLE',  price: 0.4567,   dec: 4, chg: 6.02,  vol: '$0.2B',  vnum: 0.2 },
+  ];
+  // 목록에서 빠진 뒤 보고 있던 종목 (거래 종료 시나리오 전용, 목록에는 없다)
+  const GONE = { s: 'OLDCOINUSDT', unit: 'OLDCOIN', price: 0.8123, dec: 4, chg: -4.10, vol: '-', vnum: 0 };
+
+  // 상태 정의. ?state= 로 고른다. list/chart/price/chip/banner 를 조합한다.
+  const STATES = {
+    live:         { list: 'rows', chart: 'ok', price: 'live', chip: ['ok', '실시간'], banner: null },
+    loading:      { list: 'loading', chart: 'loading', price: 'none', chip: ['muted', '연결 중…'], banner: null },
+    empty:        { list: 'empty', chart: 'nosel', price: 'none', chip: ['warn', '종목 없음'], banner: null },
+    nomatch:      { list: 'rows', chart: 'ok', price: 'live', chip: ['ok', '실시간'], banner: null, q: 'zzzz' },
+    ratelimit:    { list: 'rows', chart: 'ok', price: 'frozen', chip: ['warn', '요청 제한'],
+                    banner: { kind: 'warn', text: '요청이 너무 많아 잠시 후 다시 시도합니다. 남은 대기 약 45초. 대기 중에는 새 요청을 보내지 않습니다.' } },
+    listerror:    { list: 'error', chart: 'ok', price: 'live', chip: ['err', '목록 실패'],
+                    banner: { kind: 'err', text: '종목 목록을 불러오지 못했습니다. 지금 선택한 종목의 차트는 계속 볼 수 있습니다.', btn: '다시 시도', go: 'live' } },
+    blocked:      { list: 'blocked', chart: 'blocked', price: 'none', chip: ['err', '시세 차단'],
+                    banner: { kind: 'err', text: '이 지역/네트워크에서는 시세를 받을 수 없습니다 (오류 451). 가격과 차트를 표시하지 않습니다.' } },
+    reconnecting: { list: 'rows', chart: 'ok', price: 'frozen', chip: ['warn', '재연결 중'],
+                    banner: { kind: 'warn', text: '연결이 끊겨 다시 연결하고 있습니다 (3회 시도). 가격과 봉은 14:03:12 KST 값에 멈춰 있고, 연결되면 빠진 봉을 채웁니다.' } },
+    offline:      { list: 'rows', chart: 'ok', dim: true, price: 'frozen', chip: ['err', '연결 끊김'],
+                    banner: { kind: 'err', text: '연결을 복구하지 못했습니다. 마지막 값 14:03:12 KST 기준입니다.', btn: '다시 연결', go: 'live' } },
+    delisted:     { list: 'rows', chart: 'ok', price: 'frozen', chip: ['err', '거래 종료'], sym: 'OLDCOINUSDT',
+                    banner: { kind: 'err', text: '이 종목은 거래가 종료/정지되었습니다. 마지막 봉은 남기고 실시간 갱신을 멈췄습니다. 목록에서 다른 종목을 고르세요.' } },
+    candleerror:  { list: 'rows', chart: 'error', price: 'live', chip: ['err', '봉 실패'], sym: 'EXAMPLEUSDT', banner: null },
+  };
+
+  let symKey = 'BTCUSDT';
+  let tf = '1m';
+  let view = null;
+  let cur = null;   // 지금 그린 차트 정보 (마우스 말풍선용)
+  const chartBox = document.getElementById('chartBox');
+  const $ = id => document.getElementById(id);
+
+  const fmt = (n, d) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const chgText = c => (c >= 0 ? '▲ +' + c.toFixed(2) + '%' : '▼ ' + c.toFixed(2) + '%');
+  const findSym = k => SYMS.find(s => s.s === k) || (k === GONE.s ? GONE : null);
+  const msg = (t, s, extra) => `<div class="msg"><p class="em">${t}</p><p class="sub">${s}</p>${extra || ''}</div>`;
+  const boxMsg = (t, s, extra) => `<div class="box"><p><b>${t}</b></p><p class="sub">${s}</p>${extra || ''}</div>`;
+  const skelRows = n => '<div class="row skel"><span style="width:40%"></span><span style="width:18%"></span></div>'.repeat(n);
+
+  // 결정적 예시 봉 (같은 종목·간격이면 항상 같은 모양). 마지막 종가는 목록 현재가와 같게 맞춘다.
+  function hash(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function makeCandles(sym, interval) {
+    const step = TF[interval];
+    let seed = (hash(sym.s + interval) % 2147483646) + 1;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const vol = Math.sqrt(step / 60) * 0.0009;
+    const raw = [];
+    let p = 1;
+    for (let i = 0; i < N_CANDLES; i++) {
+      const o = p;
+      const c = o * (1 + (rnd() - 0.48) * vol * 2.2);
+      const h = Math.max(o, c) * (1 + rnd() * vol);
+      const l = Math.min(o, c) * (1 - rnd() * vol);
+      raw.push({ o, h, l, c, v: 0.5 + rnd() * 1.5 });
+      p = c;
+    }
+    const k = sym.price / raw[raw.length - 1].c;
+    const t0 = Math.floor(Date.now() / 1000 / step) * step - (N_CANDLES - 1) * step;
+    return raw.map((r, i) => ({ t: t0 + i * step, o: r.o * k, h: r.h * k, l: r.l * k, c: r.c * k, v: r.v }));
+  }
+
+  // KST = UTC + 9시간
+  function kstLabel(t, full) {
+    const s = new Date((t + 32400) * 1000).toISOString();
+    if (full) return s.slice(0, 16).replace('T', ' ');
+    return tf === '1d' ? s.slice(5, 10) : s.slice(11, 16);
+  }
+
+  function lastLabel() {
+    return view.price === 'frozen' ? '마지막 봉 · 멈춤' : '진행 중 봉';
+  }
+  function setOhlc(k, label) {
+    const d = cur ? cur.sym.dec : 2, u = cur ? cur.sym.unit : '';
+    $('olabel').textContent = label;
+    $('o').textContent = fmt(k.o, d);
+    $('h').textContent = fmt(k.h, d);
+    $('l').textContent = fmt(k.l, d);
+    $('c').textContent = fmt(k.c, d);
+    $('v').textContent = k.v.toFixed(3) + ' ' + u;
+  }
+  function clearOhlc() {
+    $('olabel').textContent = '마지막 봉';
+    ['o', 'h', 'l', 'c', 'v'].forEach(id => { $(id).textContent = '-'; });
+  }
+
+  function renderHeader(sym) {
+    $('symName').textContent = sym ? sym.s : '종목 선택 전';
+    $('unitnote').hidden = !(sym && /^1000/.test(sym.s));
+    const pr = $('price'), ch = $('change'), st = $('stamp');
+    const frozen = view.price === 'frozen';
+    if (!sym || view.price === 'none') {
+      pr.className = 'price num muted'; pr.textContent = '--';
+      ch.className = 'change num muted'; ch.textContent = '--';
+      st.textContent = '마지막 갱신 -';
+    } else {
+      pr.className = 'price num';
+      pr.innerHTML = fmt(sym.price, sym.dec) + (frozen ? ' <small>· 멈춤</small>' : '');
+      ch.className = 'change num ' + (sym.chg >= 0 ? 'up' : 'down');
+      ch.textContent = chgText(sym.chg) + ' (24시간)';
+      st.textContent = '마지막 갱신 ' + (frozen ? '14:03:12' : '14:03:27') + ' KST';
+    }
+    const chip = $('chip');
+    chip.className = 'chip c-' + view.chip[0];
+    chip.textContent = view.chip[1];
+  }
+
+  function renderBanner() {
+    const bn = $('banner'), b = view.banner;
+    bn.hidden = !b;
+    if (!b) return;
+    bn.className = 'banner b-' + b.kind;
+    $('bannerText').textContent = b.text;
+    const btn = $('bannerBtn');
+    btn.hidden = !b.btn;
+    btn.textContent = b.btn || '';
+    btn.dataset.go = b.go || '';
+  }
+
+  function renderList() {
+    const el = $('list'), cnt = $('lcount');
+    const L = view.list, frozen = view.price === 'frozen';
+    if (L === 'loading') {
+      cnt.textContent = '목록 받는 중';
+      el.innerHTML = msg('종목 목록을 불러오는 중…', '거래 중인 무기한 선물 종목을 받고 있습니다.') + skelRows(6);
+      return;
+    }
+    if (L === 'empty') {
+      cnt.textContent = '종목 0개';
+      el.innerHTML = msg('거래 중인 무기한 선물 종목이 없습니다', '바이낸스 응답에 거래 중 종목이 0개입니다. 잠시 뒤 다시 시도하세요.');
+      return;
+    }
+    if (L === 'error') {
+      cnt.textContent = '목록 없음';
+      el.innerHTML = msg('종목 목록을 불러오지 못했습니다', '네트워크 또는 바이낸스 응답 오류입니다.', '<button class="btn" type="button" data-go="live">다시 시도</button>');
+      return;
+    }
+    if (L === 'blocked') {
+      cnt.textContent = '목록 없음';
+      el.innerHTML = msg('시세를 받을 수 없습니다 (오류 451)', '이 지역/네트워크에서는 종목 목록을 표시할 수 없습니다.');
+      return;
+    }
+    // rows: 검색어로 기호를 포함 일치 (대소문자 무관)
+    const q = view.q.trim().toLowerCase();
+    const rows = SYMS.filter(s => !q || s.s.toLowerCase().includes(q));
+    cnt.textContent = q
+      ? `"${view.q.trim()}" 일치 ${rows.length}개 · 전체 ${SYMS.length}개`
+      : `종목 ${SYMS.length}개 · 24시간 거래대금 순 · 예시`;
+    if (!rows.length) {
+      el.innerHTML = msg('검색 결과 없음', '검색어를 지우면 전체 목록이 나옵니다.');
+      return;
+    }
+    el.innerHTML = rows.map(s => {
+      const sel = s.s === symKey && view.chart !== 'nosel';
+      const note = /^1000/.test(s.s) ? ' · 1000배 단위' : '';
+      return `<button class="row${frozen ? ' frozen' : ''}" type="button" data-sym="${s.s}"${sel ? ' aria-current="true"' : ''}>` +
+        `<span class="sym">${s.s}</span>` +
+        `<span class="px num">${fmt(s.price, s.dec)}</span>` +
+        `<span class="sub">거래대금 ${s.vol}${note}${frozen ? ' · 멈춤' : ''}</span>` +
+        `<span class="chg num ${s.chg >= 0 ? 'up' : 'down'}">${chgText(s.chg)}</span>` +
+        `</button>`;
+    }).join('');
+  }
+
+  function renderChart(sym) {
+    chartBox.classList.toggle('dim', !!view.dim);
+    $('ctitle').textContent = sym ? `${sym.s} · ${TF_LABEL[tf]}` : '';
+    cur = null;
+    const C = view.chart;
+    if (C === 'loading') {
+      clearOhlc();
+      chartBox.innerHTML = `<div class="box loading"><p><b>봉을 불러오는 중…</b></p><p class="sub">잠시만 기다려 주세요.</p></div>`;
+      return;
+    }
+    if (C === 'nosel' || !sym) {
+      clearOhlc();
+      chartBox.innerHTML = boxMsg('표시할 종목이 없습니다', '거래 중인 종목이 생기면 목록에서 고를 수 있습니다.');
+      return;
+    }
+    if (C === 'blocked') {
+      clearOhlc();
+      chartBox.innerHTML = boxMsg('차트를 표시할 수 없습니다 (오류 451)', '가격과 봉을 표시하지 않습니다.');
+      return;
+    }
+    if (C === 'error') {
+      clearOhlc();
+      chartBox.innerHTML = boxMsg('이 종목의 봉을 불러오지 못했습니다', '다른 종목을 누르거나 다시 시도하세요.',
+        '<button class="btn" type="button" data-go="live">다시 시도</button>');
+      return;
+    }
+
+    // ok: 캔들 + 거래량 + 현재가 점선 + KST 시간 눈금
+    const cs = makeCandles(sym, tf);
+    const W = Math.max(320, chartBox.clientWidth);
+    const H = window.matchMedia('(max-width: 720px)').matches ? 300 : 460;
+    const PR = 84, plotW = W - PR, cw = plotW / cs.length;
+    const hi0 = Math.max(...cs.map(k => k.h)), lo0 = Math.min(...cs.map(k => k.l));
+    const pad = (hi0 - lo0) * 0.04, hi = hi0 + pad, lo = lo0 - pad;
+    const pTop = 10, pBot = Math.round(H * 0.70), vTop = Math.round(H * 0.76), vBot = H - 22;
+    const y = v => pTop + (hi - v) / (hi - lo) * (pBot - pTop);
+    const vmax = Math.max(...cs.map(k => k.v));
+    const vy = v => vBot - (v / vmax) * (vBot - vTop);
+    const d = sym.dec;
+
+    let s = `<svg class="chart" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${sym.s} ${TF_LABEL[tf]} 캔들 차트 (예시 데이터)">`;
+    for (let i = 0; i <= 4; i++) {
+      const val = hi - i * (hi - lo) / 4, yy = y(val);
+      s += `<line x1="0" x2="${plotW}" y1="${yy}" y2="${yy}" stroke="#2b3139" stroke-dasharray="2 4"/>`;
+      s += `<text x="${plotW + 6}" y="${yy + 4}" fill="#848e9c" font-size="12">${fmt(val, d)}</text>`;
+    }
+    cs.forEach((k, i) => {
+      const x = i * cw + cw / 2, col = k.c >= k.o ? UP : DOWN, bw = cw * 0.6;
+      s += `<line x1="${x}" x2="${x}" y1="${y(k.h)}" y2="${y(k.l)}" stroke="${col}"/>`;
+      s += `<rect x="${x - bw / 2}" y="${y(Math.max(k.o, k.c))}" width="${bw}" height="${Math.max(1, Math.abs(y(k.o) - y(k.c)))}" fill="${col}"/>`;
+      s += `<rect x="${x - bw / 2}" y="${vy(k.v)}" width="${bw}" height="${vBot - vy(k.v)}" fill="${col}" opacity="0.35"/>`;
+    });
+    const last = cs[cs.length - 1], ly = y(last.c);
+    s += `<line x1="0" x2="${plotW}" y1="${ly}" y2="${ly}" stroke="#f0b90b" stroke-dasharray="4 3"/>`;
+    s += `<rect x="${plotW}" y="${ly - 10}" width="${PR - 4}" height="20" fill="#f0b90b"/>`;
+    s += `<text x="${plotW + 4}" y="${ly + 4}" fill="#1e2026" font-size="12" font-weight="700">${fmt(last.c, d)}</text>`;
+    const every = Math.max(1, Math.round(cs.length / 6));
+    for (let i = 0; i < cs.length; i += every) {
+      s += `<text x="${i * cw + cw / 2}" y="${H - 6}" fill="#848e9c" font-size="12" text-anchor="middle">${kstLabel(cs[i].t, false)}</text>`;
+    }
+    s += `<text x="${plotW + 6}" y="${H - 6}" fill="#848e9c" font-size="12">KST</text>`;
+    s += `</svg>`;
+
+    chartBox.innerHTML = s + '<div class="xh" hidden></div><div class="tip" hidden></div>';
+    cur = { cs, sym, W, cw, plotW, n: cs.length };
+    setOhlc(last, lastLabel());
+  }
+
+  function hideBar() {
+    if (!cur) return;
+    const xh = chartBox.querySelector('.xh'), tip = chartBox.querySelector('.tip');
+    if (xh) xh.hidden = true;
+    if (tip) tip.hidden = true;
+    setOhlc(cur.cs[cur.n - 1], lastLabel());
+  }
+  function showBar(i) {
+    const k = cur.cs[i], cx = i * cur.cw + cur.cw / 2, d = cur.sym.dec;
+    const xh = chartBox.querySelector('.xh'), tip = chartBox.querySelector('.tip');
+    xh.style.left = cx + 'px';
+    xh.hidden = false;
+    tip.innerHTML = `<b class="num">${kstLabel(k.t, true)} KST</b><br>` +
+      `<span class="num">시가 ${fmt(k.o, d)} · 고가 ${fmt(k.h, d)}<br>` +
+      `저가 ${fmt(k.l, d)} · 종가 ${fmt(k.c, d)}<br>` +
+      `거래량 ${k.v.toFixed(3)} ${cur.sym.unit}</span>`;
+    tip.hidden = false;
+    const tw = 220;
+    let tx = cx + 14;
+    if (tx + tw > cur.W) tx = cx - tw - 14;
+    tip.style.left = Math.max(0, tx) + 'px';
+    setOhlc(k, kstLabel(k.t, true) + ' KST');
+  }
+
+  function renderAll() {
+    const sym = view.chart === 'nosel' ? null : findSym(symKey);
+    renderHeader(sym);
+    renderBanner();
+    renderList();
+    renderChart(sym);
+    if ($('q').value !== view.q) $('q').value = view.q;
+    $('q').disabled = view.list !== 'rows';
+    document.querySelectorAll('.tf').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tf === tf)));
+    document.querySelectorAll('.statenav a').forEach(a => a.setAttribute('aria-current', String(a.dataset.state === view.name)));
+  }
+
+  // 상태 전환. 시안에서 버튼·목록을 누르면 정상(live) 화면으로 돌아간다.
+  function go(name, extra) {
+    const b = STATES[name] || STATES.live;
+    view = Object.assign({ name: STATES[name] ? name : 'live', q: '' }, b, extra || {});
+    if (b.sym) symKey = b.sym;
+    renderAll();
+  }
+
+  // 이벤트
+  document.querySelectorAll('.tf').forEach(b =>
+    b.addEventListener('click', () => { tf = b.dataset.tf; renderAll(); }));
+
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-go]');
+    if (t && t.dataset.go) go(t.dataset.go, { q: $('q').value });
+  });
+
+  $('list').addEventListener('click', e => {
+    const row = e.target.closest('[data-sym]');
+    if (!row) return;
+    symKey = row.dataset.sym;
+    go('live', { q: $('q').value });
+  });
+
+  $('q').addEventListener('input', e => {
+    view.q = e.target.value;
+    renderList();
+  });
+
+  chartBox.addEventListener('pointermove', e => {
+    if (!cur) return;
+    const svg = chartBox.querySelector('svg');
+    if (!svg) return;
+    const x = e.clientX - svg.getBoundingClientRect().left;
+    if (x < 0 || x > cur.plotW) { hideBar(); return; }
+    showBar(Math.min(cur.n - 1, Math.max(0, Math.floor(x / cur.cw))));
+  });
+  chartBox.addEventListener('pointerleave', hideBar);
+
+  let rt;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderAll, 120); });
+
+  // 시작: ?state=, ?q=, ?tf= 로 바꿔 본다
+  const params = new URLSearchParams(location.search);
+  if (TF[params.get('tf')]) tf = params.get('tf');
+  const startName = STATES[params.get('state')] ? params.get('state') : 'live';
+  go(startName, params.has('q') ? { q: params.get('q') } : {});
+</script>
+</body>
+</html>
